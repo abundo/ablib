@@ -3,13 +3,21 @@
 Class to handle Oxidized
 """
 
+# ----- Start of configuration items -----
+
+CONFIG_FILE="/etc/abtools/abtools_oxidized.yaml"
+
+# ----- End of configuration items -----
+
 import sys
 import subprocess
+import requests
 from orderedattrdict import AttrDict
 
+import ablib.utils as utils
 
 class Oxidized_Mgr:
-    def __init__(self, config=None, load=True):
+    def __init__(self, config=None, load=False):
         self.config = config
         self.elements = None
         if load:
@@ -37,6 +45,20 @@ class Oxidized_Mgr:
     def get_element_interfaces(self, hostname):
         return None
     
+    def get_element_config(self, name):
+        """
+        Fetch last element configuration, for an element
+        If no configuration found, return None
+        """
+        url = self.config.url + "/node/fetch/%s" % name
+        if "username" in self.config:
+            r = requests.get(url, auth=requests.auth.HTTPBasicAuth(self.config.username, self.config.password))
+        else:
+            r = requests.get(url)
+        if r.status_code == 200:
+            return r.text
+        return None
+    
     def save_elements(self, filename, elements, ignore_models = None):
         if ignore_models is None:
             ignore_models = {}
@@ -59,31 +81,36 @@ class Oxidized_Mgr:
     def reload(self):
         """
         Reload configuration file
+        Returns True if ok
         """
-        cmd = "curl -s %s/reload?format=json >/dev/null 2>&1" % self.config.url
-        subprocess.run(cmd.split(" "))
+        url = "%s/reload?format=json" % self.config.url
+        r = requests.get(url)
+        return print(r.status_code)
 
 
 def main():
     """
     Function tests
     """
+
+    # Load configuration
+    try:
+        config = utils.yaml_load(CONFIG_FILE)
+    except utils.UtilException as err:
+        utils.die("Cannot load configuration file, err: %s" % err)
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--cmd", required=True, 
                         choices=["get_elements", 
+                                 "get_element_config",
                                  "reload",
                                  ])
-    parser.add_argument("--url", default=None)
     parser.add_argument("--router_db", default="/etc/oxidized/router.db")
+    parser.add_argument("-H", "--hostname", default=None)
     args = parser.parse_args()
 
-    # Create a dummy config instance
-    config = AttrDict()
-    config.url = args.url
-    config.router_db = args.router_db
-
-    oxidized_mgr = Oxidized_Mgr(config=config)
+    oxidized_mgr = Oxidized_Mgr(config=config.oxidized)
 
     if args.cmd == 'get_elements':
         element_list = oxidized_mgr.get_elements()
@@ -91,9 +118,13 @@ def main():
             print(hostname, element)
         print("Elements: %5d elements" % len(element_list))
 
+    elif args.cmd == "get_element_config":
+        if args.hostname is None:
+            utils.die("Must specify hostname")
+        conf = oxidized_mgr.get_element_config(args.hostname)
+        print(conf)
+
     elif args.cmd == 'reload':
-        if args.url is None:
-            print("Error: must specify URL")
         oxidized_mgr.reload()
 
     else:
