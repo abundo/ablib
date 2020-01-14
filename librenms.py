@@ -118,12 +118,15 @@ class Librenms_Mgr:
             if row is None:
                 return None
             device_id = row.device_id
-        sql = "SELECT port_id,ifname,`ignore` FROM ports WHERE device_id=%s"
+        sql = "SELECT port_id,ifname,ifdescr,ifalias,`ignore` FROM ports WHERE device_id=%s"
         rows = self.db.select_all(sql, (device_id),)
         interfaces = AttrDict()
         for row in rows:
             name = row.ifname
             interface = AttrDict()
+            interface.ifname = row.ifname
+            interface.ifdescr = row.ifdescr
+            interface.ifalias = row.ifalias
             interface.port_id = row.port_id
             interface.ignore = row.ignore
             interfaces[name] = interface
