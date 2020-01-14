@@ -198,9 +198,9 @@ class BECS:
             if interface["class"] == "interface":
                 flags = interface["flags"]
                 if flags is None:
-                    active = True
+                    enabled = True
                 else:
-                    active = flags.find("disable") < 0
+                    enabled = flags.find("disable") < 0
                 # search for the resource-inet in response
                 prefix = None
                 for resource_inet in data["objects"]:
@@ -212,6 +212,6 @@ class BECS:
                 d.name = interface["name"]
                 d.role = interface["role"]
                 d.prefix = prefix
-                d.active = active
+                d.enabled = enabled
                 res.append(d)
         return res
