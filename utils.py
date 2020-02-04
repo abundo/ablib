@@ -111,21 +111,25 @@ def send_traceback():
     Create a traceback and send to developer
     """
     import traceback
-    from ablib.email1 import Email
-    msg = "<pre>\n"
-    msg += "arguments:\n"
-    for ix in range(len(sys.argv)):
-        msg += "  %2d %s\n" % (ix, sys.argv[ix])
-    msg += "\n"
+    if sys.stdout.isatty():
+        # We have a tty, show traceback on stdout
+        print(traceback.format_exc())
+    else:
+        from ablib.email1 import Email
+        msg = "<pre>\n"
+        msg += "arguments:\n"
+        for ix in range(len(sys.argv)):
+            msg += "  %2d %s\n" % (ix, sys.argv[ix])
+        msg += "\n"
 
-    msg += traceback.format_exc()
-    msg += "</pre>"
-    print(msg)
-    email = Email()
-    email.send(recipient="anders@abundo.se", 
-                sender="noreply@piteenergi.se", 
-                subject="PE-Icinga %s program error" % sys.argv[0], 
-                msg=msg)
+        msg += traceback.format_exc()
+        msg += "</pre>"
+        print(msg)
+        email = Email()
+        email.send(recipient="anders@abundo.se",
+                    sender="noreply@piteenergi.se",
+                    subject="PE-Icinga %s program error" % sys.argv[0],
+                    msg=msg)
 
 
 def write_etc_hosts_file(elements):
