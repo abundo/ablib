@@ -205,6 +205,35 @@ class Icinga:
         result = sorted(result, key=attrgetter("last_hard_state_changed"), reverse=True)
         return result
 
+    def get_events(self):
+        """
+        Get all events
+        returns iterator
+        """
+        result = []
+
+        headers = { 
+            "Accept": "application/json" ,
+            }
+        postdata = {
+            # "attrs": [ "name", "state", "acknowledgement"]
+            #"filter": "service.state!=0 && service.acknowledgement==0"
+        }
+        url = self.config.api.url + "/v1/events?queue=abtools_icinga&types=CheckResult"
+        r = requests.post(
+            url,
+            headers=headers, 
+            auth=(self.config.api.username, self.config.api.password),
+            data=json.dumps(postdata),
+            verify=False, 
+            stream=True
+            )
+        if r.status_code != 200:
+            raise IcingaException("Cannot fetch data from Icinga API, status_code %s" % r.status_code)
+
+        return r
+ 
+
 def main():
     """
     Function tests
@@ -217,7 +246,7 @@ def main():
 
     icinga = Icinga(config=config.icinga)
 
-    if 1:
+    if 0:
         print("Hosts down, not acknowledged")
         state_down = icinga.get_hosts_down()
         for state in state_down:
@@ -229,6 +258,28 @@ def main():
         for state in state_down:
             utils.pretty_print("", state)
             print()
+    
+    if 1:
+        import signal
+        global running
+        running = True
+
+        def signal_handler(sig, frame):
+            """Trap ctrl-c, do to proper termination"""
+            global running
+            running = False
+
+        signal.signal(signal.SIGINT, signal_handler)
+        print("Streaming events")
+        r = icinga.get_events()
+        for line in r.iter_lines(decode_unicode=True):
+            if running:
+                if line:
+                    print(json.loads(line))
+            else:
+                break
+        
+
 
 if __name__ == "__main__":
     main()
