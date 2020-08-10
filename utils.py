@@ -111,6 +111,8 @@ def send_traceback():
     Create a traceback and send to developer
     """
     import traceback
+    import platform
+
     if sys.stdout.isatty():
         # We have a tty, show traceback on stdout
         print(traceback.format_exc())
@@ -128,7 +130,7 @@ def send_traceback():
         email = Email()
         email.send(recipient="anders@abundo.se",
                     sender="noreply@piteenergi.se",
-                    subject="PE-Icinga %s program error" % sys.argv[0],
+                    subject="%s %s program error" % (platform.node(), sys.argv[0]),
                     msg=msg)
 
 
