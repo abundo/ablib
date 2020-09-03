@@ -60,7 +60,7 @@ class Librenms_Mgr:
         headers = {'X-Auth-Token': self.config.api.key}
 
         data = AttrDict()
-        data.name = name
+        data.hostname = name
         data.version = self.config.snmp.version
         data.force_add = force_add
 
@@ -104,7 +104,6 @@ class Librenms_Mgr:
         headers = {'X-Auth-Token': self.config.api.key}
         r = requests.get(url=url, headers=headers)
         tmp_devices = r.json()
-        #todo
 
     def get_device_interfaces(self, name=None, device_id=None):
         """
