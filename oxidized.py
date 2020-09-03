@@ -17,37 +17,38 @@ from orderedattrdict import AttrDict
 import ablib.utils as utils
 
 class Oxidized_Mgr:
+
     def __init__(self, config=None, load=False):
         self.config = config
-        self.elements = None
+        self.devices = None
         if load:
-            self.load_elements()
+            self.load_devices()
 
     def __len__(self):
-        return len(self.elements)
+        return len(self.devices)
 
-    def load_elements(self):
-        self.elements = AttrDict()
+    def load_devices(self):
+        self.devices = AttrDict()
         with open(self.config.router_db.dst, 'r') as f:
             for line in f.readlines():
                 tmp = line.strip().split(":")
                 if len(tmp) < 2:
                     print("Ignoring line ", line)
                     continue
-                element = AttrDict()
-                element.hostname = tmp[0]
-                element.model = tmp[1]
-                self.elements[element.hostname] = element
+                device = AttrDict()
+                device.name = tmp[0]
+                device.model = tmp[1]
+                self.devices[device.name] = device
 
-    def get_elements(self):
-        return self.elements
+    def get_devices(self):
+        return self.devices
     
-    def get_element_interfaces(self, hostname):
+    def get_device_interfaces(self, name):
         return None
     
-    def get_element_config(self, name):
+    def get_device_config(self, name):
         """
-        Fetch last element configuration, for an element
+        Fetch last device configuration
         If no configuration found, return None
         """
         url = self.config.url + "/node/fetch/%s" % name
@@ -59,23 +60,23 @@ class Oxidized_Mgr:
             return r.text
         return None
     
-    def save_elements(self, filename, elements, ignore_models = None):
+    def save_devices(self, filename, devices, ignore_models = None):
         if ignore_models is None:
             ignore_models = {}
         count = 0
         with open(filename, 'w') as f:
-            for hostname, element in elements.items():
-                # Element API is 'platform' oxidized calls it 'model'
-                if 'platform' in element:
-                    model = element['platform']
+            for name, device in devices.items():
+                # Device API is 'platform' oxidized calls it 'model'
+                if 'platform' in device:
+                    model = device['platform']
                     if model and model not in ignore_models:
-                        if hostname == element['ipv4_addr']:
-                            f.write("%s:%s\n" % (element['ipv4_addr'], model))
+                        if name == device['ipv4_addr']:
+                            f.write("%s:%s\n" % (device['ipv4_addr'], model))
                         else:
-                            f.write("%s:%s\n" % (element['hostname'], model))
+                            f.write("%s:%s\n" % (device['name'], model))
                         count += 1
                 else:
-                    print("backup_oxidized is False for %s" % hostname)
+                    print("backup_oxidized is False for %s" % name)
         return count
 
     def reload(self):
@@ -102,26 +103,27 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--cmd", required=True, 
-                        choices=["get_elements", 
-                                 "get_element_config",
+                        choices=["get_devices", 
+                                 "get_device_config",
                                  "reload",
                                  ])
     parser.add_argument("--router_db", default="/etc/oxidized/router.db")
-    parser.add_argument("-H", "--hostname", default=None)
+    parser.add_argument("-H", "--name", default=None)
     args = parser.parse_args()
 
     oxidized_mgr = Oxidized_Mgr(config=config.oxidized)
 
-    if args.cmd == 'get_elements':
-        element_list = oxidized_mgr.get_elements()
-        for hostname, element in element_list.items():
-            print(hostname, element)
-        print("Elements: %5d elements" % len(element_list))
+    if args.cmd == 'get_devices':
+        oxidized_mgr.load_devices()
+        device_list = oxidized_mgr.get_devices()
+        for name, device in device_list.items():
+            print(name, device)
+        print("Devices: %5d devices" % len(device_list))
 
-    elif args.cmd == "get_element_config":
-        if args.hostname is None:
-            utils.die("Must specify hostname")
-        conf = oxidized_mgr.get_element_config(args.hostname)
+    elif args.cmd == "get_device_config":
+        if args.name is None:
+            utils.die("Must specify name")
+        conf = oxidized_mgr.get_device_config(args.name)
         print(conf)
 
     elif args.cmd == 'reload':

@@ -21,46 +21,46 @@ class Librenms_Mgr:
 
     def __init__(self, config=None, load=True):
         self.config = config
-        self.elements = None        # key is hostname, value is dict with key-val
-        self.interfaces = None      # key is hostname, value is dict(key interface name, val is interface key-val)
+        self.devices = None         # key is name, value is dict with key-val
+        self.interfaces = None      # key is name, value is dict(key interface name, val is interface key-val)
         self.db = Database(self.config.db)
 
         if load:
-            self.load_elements()
+            self.load_devices()
 
-    def _format_hostname(self, hostname):
-        if hostname.find('.') < 0:
-            hostname = hostname + self.config.default_domain
-        return hostname
+    def _format_name(self, name):
+        if name.find('.') < 0:
+            name = name + self.config.default_domain
+        return name
 
-    def load_elements(self):
+    def load_devices(self):
         url = self.config.api.url + "/devices"
         headers = {'X-Auth-Token': self.config.api.key}
         r = requests.get(url=url, headers=headers)
-        tmp_elements = r.json()
+        tmp_devices = r.json()
         
-        self.elements = AttrDict()
-        for element in tmp_elements['devices']:
-            hostname = element['hostname'].lower()
-            self.elements[hostname] = element
+        self.devices = AttrDict()
+        for device in tmp_devices['devices']:
+            name = device['hostname'].lower()
+            self.devices[name] = device
 
-    def get_element(self, hostname=None):
-        hostname = self._format_hostname(hostname)
-        if hostname not in self.elements:
+    def get_device(self, name=None):
+        name = self._format_name(name)
+        if name not in self.devices:
             return None
-        return self.elements[hostname]
+        return self.devices[name]
 
-    def get_elements(self):
-        return self.elements
+    def get_devices(self):
+        return self.devices
     
-    def create_element(self, hostname=None, force_add=0):
-        hostname = self._format_hostname(hostname)
+    def create_device(self, name=None, force_add=0):
+        name = self._format_name(name)
 
         url = self.config.api.url + "/devices"
         headers = {'X-Auth-Token': self.config.api.key}
 
         data = AttrDict()
-        data.hostname = hostname
+        data.name = name
         data.version = self.config.snmp.version
         data.force_add = force_add
 
@@ -68,12 +68,12 @@ class Librenms_Mgr:
             r = requests.post(url=url, json=data, headers=headers)
             print(r.json())
         except requests.exceptions.HTTPError as err:
-            print("Error adding element: %s" % err)
+            print("Error adding device: %s" % err)
             
-    def update_element(self, hostname=None, data=None):
-        hostname = self._format_hostname(hostname)
-        print("hostname...", hostname)
-        url = self.config.api.url + "/devices/" + hostname
+    def update_device(self, name=None, data=None):
+        name = self._format_name(name)
+        print("name...", name)
+        url = self.config.api.url + "/devices/" + name
         headers = {'X-Auth-Token': self.config.api.key}
         d = AttrDict(field=[], data=[])
         
@@ -84,37 +84,37 @@ class Librenms_Mgr:
         r = requests.patch(url, json=d, headers=headers)
         return r.json()
 
-    def delete_element(self, hostname=None):
-        hostname = self._format_hostname(hostname)
+    def delete_device(self, name=None):
+        name = self._format_name(name)
 
-        url = self.config.api.url + "/devices/" + hostname
+        url = self.config.api.url + "/devices/" + name
         headers = {'X-Auth-Token': self.config.api.key}
         try:
             r = requests.delete(url=url, headers=headers)
             print(r.json())
         except requests.exceptions.HTTPError as err:
-            print("Error deleting element: %s" % err)
+            print("Error deleting device: %s" % err)
 
     def load_interfaces(self):
         """
         Load all librenms interfaces to memory
-        load_elements() must be called before this method
+        load_devices() must be called before this method
         """
         url = self.config.api.url + "/ports?columns=port_id,device_id,ifName"
         headers = {'X-Auth-Token': self.config.api.key}
         r = requests.get(url=url, headers=headers)
-        tmp_elements = r.json()
+        tmp_devices = r.json()
         #todo
 
-    def get_element_interfaces(self, hostname=None, device_id=None):
+    def get_device_interfaces(self, name=None, device_id=None):
         """
         Get all device port info 
         API does not support everything we need, so we read the database directly
         """
         if device_id is None:
-            hostname = self._format_hostname(hostname)
+            name = self._format_name(name)
             sql = "SELECT device_id FROM devices WHERE hostname=%s"
-            row = self.db.select_one(sql, (hostname,))
+            row = self.db.select_one(sql, (name,))
             if row is None:
                 return None
             device_id = row.device_id
@@ -132,7 +132,7 @@ class Librenms_Mgr:
             interfaces[name] = interface
         return interfaces
         
-    def update_element_interface(self, port_id=None, data=None):
+    def update_device_interface(self, port_id=None, data=None):
         data.port_id = port_id
         self.db.update("ports", d=data, primary_key="port_id")
 
@@ -150,40 +150,40 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--cmd', required=True, 
-                        choices=['get_elements', 
-                                 'create_element', 
-                                 'delete_element',
+                        choices=['get_devices', 
+                                 'create_device', 
+                                 'delete_device',
                                  'get_interfaces',
                                  ])
-    parser.add_argument('--hostname', default=None)
+    parser.add_argument('--name', default=None)
     args = parser.parse_args()
 
     librenms_mgr = Librenms_Mgr(config=config.librenms)
     cmd = args.cmd
-    if cmd == 'get_elements':
-        elements = librenms_mgr.get_elements()
-        for hostname, element in elements.items():
-            print(hostname, element)
+    if cmd == 'get_devices':
+        devices = librenms_mgr.get_devices()
+        for name, device in devices.items():
+            print(name, device)
             print()
-        print("Librenms: %5d elements" % len(elements))
+        print("Librenms: %5d devices" % len(devices))
 
-    elif cmd == 'create_element':
-        if args.hostname is None:
-            print("Missing hostname")
+    elif cmd == 'create_device':
+        if args.name is None:
+            print("Missing name")
             sys.exit(1)
-        librenms_mgr.create_element(hostname=args.hostname, force_add=1)
+        librenms_mgr.create_device(name=args.name, force_add=1)
 
-    elif cmd == 'delete_element':
-        if args.hostname is None:
-            print("Missing hostname")
+    elif cmd == 'delete_device':
+        if args.name is None:
+            print("Missing name")
             sys.exit(1)
-        librenms_mgr.delete_element(hostname=args.hostname)
+        librenms_mgr.delete_device(name=args.name)
 
     elif cmd == 'get_interfaces':
-        if args.hostname is None:
-            print("Missing hostname")
+        if args.name is None:
+            print("Missing name")
             sys.exit(1)
-        interfaces = librenms_mgr.get_element_interfaces(hostname=args.hostname)
+        interfaces = librenms_mgr.get_device_interfaces(name=args.name)
         for interface in interfaces:
             print(interface)
 
