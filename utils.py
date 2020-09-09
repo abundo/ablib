@@ -34,6 +34,21 @@ def pretty_print(msg, d):
         print(msg)
     pp.pprint(d)
 
+def output_json(args=None, data=None, errmsg=None):
+    if errmsg:
+        d = AttrDict(errno=1, errmsg=errmsg)
+    else:
+        d = AttrDict(errno=0, errmsg="", data=data)
+
+    if args.pretty:
+        json.dump(d, sys.stdout, indent=4, sort_keys=True)
+        print()
+    else:
+        json.dump(d, sys.stdout)
+
+    if d.errno:
+        sys.exit(1)
+
 def now():
     return datetime.datetime.now().replace(microsecond=0)
 
