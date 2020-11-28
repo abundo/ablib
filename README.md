@@ -11,7 +11,7 @@ Common functions, for all abtools
         python3-pip \
         python3-requests
 
-    sudo pip3 install orderedattrdict
+    sudo pip3 install -r requirements.txt
 
 
 ## Usage
@@ -23,4 +23,4 @@ Example
 
     import sys
     sys.path.insert(0, "/opt")
-    import ablib.utils as utils
+    import ablib.utils as abutils

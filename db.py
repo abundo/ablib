@@ -2,12 +2,14 @@
 """
 Class to handle mysql databases
 """
+# python standard modules
 
+
+# modules installed with pip
 from orderedattrdict import AttrDict
 
 import pymysql
 import pymysql.cursors
-import requests
 
 
 class Database:
@@ -25,11 +27,12 @@ class Database:
     def connect(self):
         if self.conn is None:
             self.conn = pymysql.connect(
-                    host=self.db_conf['host'], 
-                    user=self.db_conf['user'], 
-                    passwd=self.db_conf['pass'],
-                    db=self.db_conf['name'],
-                    cursorclass=pymysql.cursors.DictCursor)
+                host=self.db_conf['host'],
+                user=self.db_conf['user'],
+                passwd=self.db_conf['pass'],
+                db=self.db_conf['name'],
+                cursorclass=pymysql.cursors.DictCursor
+            )
         if self.cursor is None:
             self.cursor = self.conn.cursor()
         return self.conn
@@ -51,9 +54,9 @@ class Database:
             try:
                 self.conn.begin()
                 return
-            except pymysql.MySQLError as e:
+            except pymysql.MySQLError:
                 if i == 1:
-                    raise 
+                    raise
             self.disconnect()
         
     def commit(self):
@@ -84,7 +87,7 @@ class Database:
                 else:
                     self.cursor.execute(sql)
                 return
-            except pymysql.MySQLError as e:
+            except pymysql.MySQLError:
                 if i == 1:
                     raise
                 self.disconnect()
@@ -125,7 +128,7 @@ class Database:
             columns.append(colname)
             values.append(d[colname])
         sql = "INSERT into %s (%s) VALUES (%s)" %\
-            (table, ",".join(columns), ",".join(["%s"] * len(values) ) )
+            (table, ",".join(columns), ",".join(["%s"] * len(values)))
         self._execute(sql, values)
         id_ = self.last_insert_id()
         d[primary_key] = id_

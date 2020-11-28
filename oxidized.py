@@ -2,27 +2,33 @@
 """
 Class to handle Oxidized
 """
+# python standard modules
 
-# ----- Start of configuration items -----
-
-CONFIG_FILE="/etc/abtools/abtools_oxidized.yaml"
-
-# ----- End of configuration items -----
-
-import sys
-import subprocess
+# modules installed with pip
 import requests
 from orderedattrdict import AttrDict
 
-import ablib.utils as utils
+# my modules
+import ablib.utils as abutils
+
+# ----- Start of configuration items -----
+
+CONFIG_FILE = "/etc/abcontrol/abcontrol.yaml"
+
+# ----- End of configuration items -----
+
+
+class OxidizedException(Exception):
+    pass
+
 
 class Oxidized_Mgr:
 
-    def __init__(self, config=None, load=False):
+    exception = OxidizedException
+
+    def __init__(self, config=None):
         self.config = config
         self.devices = None
-        if load:
-            self.load_devices()
 
     def __len__(self):
         return len(self.devices)
@@ -40,11 +46,13 @@ class Oxidized_Mgr:
                 device.model = tmp[1]
                 self.devices[device.name] = device
 
+    def get_device(self, name=None):
+        raise OxidizedException("Not implemented")
+
     def get_devices(self):
-        return self.devices
-    
-    def get_device_interfaces(self, name):
-        return None
+        if not self.devices:
+            self.load_devices()
+            return self.devices
     
     def get_device_config(self, name):
         """
@@ -60,33 +68,31 @@ class Oxidized_Mgr:
             return r.text
         return None
     
-    def save_devices(self, filename, devices, ignore_models = None):
-        if ignore_models is None:
-            ignore_models = {}
+    def save_devices(self, filename, devices, ignore_models=None):
+        """
+        Write a new router.db for oxidized, with name:model for all devices
+        """
         count = 0
         with open(filename, 'w') as f:
             for name, device in devices.items():
-                # Device API is 'platform' oxidized calls it 'model'
-                if 'platform' in device:
-                    model = device['platform']
-                    if model and model not in ignore_models:
-                        if name == device['ipv4_addr']:
-                            f.write("%s:%s\n" % (device['ipv4_addr'], model))
-                        else:
-                            f.write("%s:%s\n" % (device['name'], model))
-                        count += 1
-                else:
-                    print("backup_oxidized is False for %s" % name)
+                if device.primary_ip4:
+                    model = device.platform   # device-api 'platform' is called 'model' in oxidized
+                    addr4 = device.primary_ip4.split("/")[0]
+                    if name == addr4:
+                        f.write(f"{addr4}:{model}\n")
+                    else:
+                        f.write(f"{name}:{model}\n")
+                    count += 1
         return count
 
     def reload(self):
         """
-        Reload configuration file
+        Ask oxidized to reload configuration file
         Returns True if ok
         """
-        url = "%s/reload?format=json" % self.config.url
+        url = f"{self.config.url}/reload?format=json"
         r = requests.get(url)
-        return print(r.status_code)
+        return r.status_code
 
 
 def main():
@@ -96,33 +102,39 @@ def main():
 
     # Load configuration
     try:
-        config = utils.yaml_load(CONFIG_FILE)
-    except utils.UtilException as err:
-        utils.die("Cannot load configuration file, err: %s" % err)
+        config = abutils.yaml_load(CONFIG_FILE)
+    except abutils.UtilException as err:
+        abutils.die("Cannot load configuration file, err: %s" % err)
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cmd", required=True, 
-                        choices=["get_devices", 
-                                 "get_device_config",
-                                 "reload",
-                                 ])
+    parser.add_argument("cmd", choices=[
+        "get_device",
+        "get_devices",
+        "get_device_config",
+        "reload",
+    ])
     parser.add_argument("--router_db", default="/etc/oxidized/router.db")
-    parser.add_argument("-H", "--name", default=None)
+    parser.add_argument("-n", "--name", default=None)
     args = parser.parse_args()
 
     oxidized_mgr = Oxidized_Mgr(config=config.oxidized)
 
-    if args.cmd == 'get_devices':
-        oxidized_mgr.load_devices()
-        device_list = oxidized_mgr.get_devices()
-        for name, device in device_list.items():
+    if args.cmd == 'get_device':
+        if args.name is None:
+            abutils.die("Must specify name")
+        device = oxidized_mgr.get_device(name=args.name)
+        print(device)
+
+    elif args.cmd == 'get_devices':
+        devices = oxidized_mgr.get_devices()
+        for name, device in devices.items():
             print(name, device)
-        print("Devices: %5d devices" % len(device_list))
+        print(f"Found {len(devices)} devices")
 
     elif args.cmd == "get_device_config":
         if args.name is None:
-            utils.die("Must specify name")
+            abutils.die("Must specify name")
         conf = oxidized_mgr.get_device_config(args.name)
         print(conf)
 

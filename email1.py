@@ -6,6 +6,7 @@ Note: module is called email1 to avoid name collision with
       built-in python module email
 """
 
+# python standard modules
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -13,6 +14,7 @@ from email.mime.multipart import MIMEMultipart
 # ----- Start of config
 
 # ----- End of config
+
 
 class Email:
 
@@ -27,7 +29,7 @@ class Email:
             message['Cc'] = cc
         message['Subject'] = subject
 
-        part1 = MIMEText(msg, 'html','utf-8')
+        part1 = MIMEText(msg, 'html', 'utf-8')
 
         # Attach parts into message container.
         # According to RFC 2046, the last part of a multipart message, in this case
@@ -46,7 +48,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cmd', required=True)
+    parser.add_argument('cmd', choices=[
+        "send_email",
+    ])
     parser.add_argument('--recipient', required=True)
     parser.add_argument('--subject', required=True)
     parser.add_argument('--msg', required=True)

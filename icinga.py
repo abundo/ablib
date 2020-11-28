@@ -3,19 +3,21 @@
 Classes to handle Icinga2
 """
 
+# python standard modules
 import os
-import sys
-import requests
-import datetime
 import json
 from operator import attrgetter
 
+# modules installed with pip
+import requests
 from orderedattrdict import AttrDict
-import ablib.utils as utils
+
+# my modules
+import ablib.utils as abutils
 
 # ----- Start of configuration items -----
 
-CONFIG_FILE="/etc/abtools/abtools_icinga.yaml"
+CONFIG_FILE = "/etc/abcontrol/abcontrol.yaml"
 
 # ----- End of configuration items -----
 
@@ -108,30 +110,28 @@ class Icinga:
         Get all hosts, which is down but not acknowledged
         """
         result = []
-        headers = { 
-            "Accept": "application/json" ,
+        headers = {
+            "Accept": "application/json",
             'X-HTTP-Method-Override': 'GET',
-            }
+        }
         postdata = {
-#            "attrs": [ "name", "state", "acknowledgement"] #, "last_check_result"],
+            # "attrs": [ "name", "state", "acknowledgement"] #, "last_check_result"],
             "filter": "host.state!=0 && host.acknowledgement==0",
         }
-        url = self.config.api.url + "/v1/objects/hosts"  #?attrs=name&attrs=state", #&attrs=last_check_result", 
+        url = self.config.api.url + "/v1/objects/hosts"  # ?attrs=name&attrs=state", #&attrs=last_check_result",
         r = requests.get(
             url,
-            headers=headers, 
+            headers=headers,
             auth=(self.config.api.username, self.config.api.password),
             data=json.dumps(postdata),
-            verify=False, 
-            )
+            verify=False,
+        )
         if r.status_code != 200:
             raise IcingaException("Cannot fetch data from Icinga API, status_code %s" % r.status_code)
         
         data = r.json()
-        # utils.pretty_print("data", data)
+        # abutils.pprint(data, "data")
         for host in data["results"]:
-            attrs = host["attrs"]
-
             state = Host_State()
             state.name = host["name"]
             state.state = self.get(host, "attrs.state")
@@ -139,7 +139,7 @@ class Icinga:
             state.address6 = self.get(host, "attrs.address6")
             state.last_hard_state = self.get(host, "attrs.last_hard_state")
             state.last_hard_state_changed = self.get(host, "attrs.last_hard_state_change")
-            state.last_hard_state_changed = utils.dt_from_timestamp(state.last_hard_state_changed)
+            state.last_hard_state_changed = abutils.dt_from_timestamp(state.last_hard_state_changed)
             state.notes = self.get(host, "attrs.notes")
             state.pe_comments = self.get(host, "attrs.vars.pe_comments")
             state.pe_manufacturer = self.get(host, "attrs.vars.pe_manufacturer")
@@ -161,10 +161,10 @@ class Icinga:
         """
         result = []
 
-        headers = { 
-            "Accept": "application/json" ,
+        headers = {
+            "Accept": "application/json",
             'X-HTTP-Method-Override': 'GET',
-            }
+        }
         postdata = {
             # "attrs": [ "name", "state", "acknowledgement"]
             "filter": "service.state!=0 && service.acknowledgement==0"
@@ -172,18 +172,18 @@ class Icinga:
         url = self.config.api.url + "/v1/objects/services"
         r = requests.get(
             url,
-            headers=headers, 
+            headers=headers,
             auth=(self.config.api.username, self.config.api.password),
             data=json.dumps(postdata),
-            verify=False, 
-            )
+            verify=False,
+        )
         if r.status_code != 200:
             raise IcingaException("Cannot fetch data from Icinga API, status_code %s" % r.status_code)
         
         data = r.json()
-        # utils.pretty_print("data", data)
+        # abutils.pprint(data, "data")
         for service in data["results"]:
-            # utils.pretty_print("service", service)
+            # abutils.pprint(service, "service")
             attrs = service["attrs"]
             state = Service_State()
 
@@ -195,7 +195,7 @@ class Icinga:
             state.state = self.get(attrs, "state")
             state.last_hard_state = self.get(attrs, "last_hard_state")
             state.last_hard_state_changed = self.get(attrs, "last_hard_state_change")
-            state.last_hard_state_changed = utils.dt_from_timestamp(state.last_hard_state_changed)
+            state.last_hard_state_changed = abutils.dt_from_timestamp(state.last_hard_state_changed)
             state.output = self.get(attrs, "last_check_result.output")
             state.notes = self.get(attrs, "notes")
 
@@ -210,24 +210,22 @@ class Icinga:
         Get all events
         returns iterator
         """
-        result = []
-
-        headers = { 
-            "Accept": "application/json" ,
-            }
+        headers = {
+            "Accept": "application/json",
+        }
         postdata = {
             # "attrs": [ "name", "state", "acknowledgement"]
-            #"filter": "service.state!=0 && service.acknowledgement==0"
+            # "filter": "service.state!=0 && service.acknowledgement==0"
         }
         url = self.config.api.url + "/v1/events?queue=abtools_icinga&types=CheckResult"
         r = requests.post(
             url,
-            headers=headers, 
+            headers=headers,
             auth=(self.config.api.username, self.config.api.password),
             data=json.dumps(postdata),
-            verify=False, 
-            stream=True
-            )
+            verify=False,
+            stream=True,
+        )
         if r.status_code != 200:
             raise IcingaException("Cannot fetch data from Icinga API, status_code %s" % r.status_code)
 
@@ -240,9 +238,9 @@ def main():
     """
     # Load configuration
     try:
-        config = utils.yaml_load(CONFIG_FILE)
-    except utils.UtilException as err:
-        utils.die("Cannot load configuration file, err: %s" % err)
+        config = abutils.yaml_load(CONFIG_FILE)
+    except abutils.UtilException as err:
+        abutils.die("Cannot load configuration file, err: %s" % err)
 
     icinga = Icinga(config=config.icinga)
 
@@ -250,13 +248,13 @@ def main():
         print("Hosts down, not acknowledged")
         state_down = icinga.get_hosts_down()
         for state in state_down:
-            utils.pretty_print("", state)
+            abutils.pprint(state)
             print()
     if 0:
         print("Services down, not acknowledged")
         state_down = icinga.get_services_down()
         for state in state_down:
-            utils.pretty_print("", state)
+            abutils.pprint(state)
             print()
     
     if 1:
@@ -278,7 +276,6 @@ def main():
                     print(json.loads(line))
             else:
                 break
-        
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 Common utilities
 """
 
+# python standard modules
 import os
 import sys
 import yaml
@@ -13,16 +14,20 @@ import shutil
 import filecmp
 import datetime
 
+# modules installed with pip
 from orderedattrdict import AttrDict
 
 pp = pprint.PrettyPrinter(indent=4)
 
+
 class UtilException(Exception):
     pass
+
 
 def die(msg, exitcode=1):
     print(msg)
     sys.exit(exitcode)
+
 
 def pretty_print(msg, d):
     if not isinstance(d, (dict, list)):
@@ -34,38 +39,31 @@ def pretty_print(msg, d):
         print(msg)
     pp.pprint(d)
 
-def output_json(args=None, data=None, errmsg=None):
-    if errmsg:
-        d = AttrDict(errno=1, errmsg=errmsg)
-    else:
-        d = AttrDict(errno=0, errmsg="", data=data)
 
-    if args.pretty:
-        json.dump(d, sys.stdout, indent=4, sort_keys=True)
-        print()
-    else:
-        json.dump(d, sys.stdout)
+def pprint(d, msg=None):
+    pretty_print(msg, d)
 
-    if d.errno:
-        sys.exit(1)
 
 def now():
     return datetime.datetime.now().replace(microsecond=0)
 
+
 def now_str():
     return now().strftime("%Y-%m-%d %H:%M:%S")
 
+
 def dt_from_timestamp(t):
     return datetime.datetime.fromtimestamp(t).replace(microsecond=0)
+
 
 def json_serial(obj):
     """
     JSON serializer for objects not serializable by default json code
     """
-
     if isinstance(obj, datetime.datetime):
         return obj.strftime("%Y-%m-%d %H:%M:%S")
     return obj.to_dict()
+
 
 def json_dumps(data):
     return json.dumps(data, default=json_serial)
@@ -86,6 +84,7 @@ def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=AttrDict):
         construct_mapping)
     return yaml.load(stream, Ordered_Loader)
 
+
 def yaml_load(filename):
     with open(filename, "r") as f:
         try:
@@ -94,9 +93,10 @@ def yaml_load(filename):
         except yaml.YAMLError as err:
             raise UtilException("Cannot load YAML file %s, err: %s" % (filename, err))
 
+
 def load_config(filename):
     """
-    Helper to load configuration file
+    Helper to load YAML configuration file
     """
     try:
         config = yaml_load(filename)
@@ -121,6 +121,7 @@ def install_conf_file(src, dst, changed=False):
 
     return changed
 
+
 def send_traceback():
     """
     Create a traceback and send to developer
@@ -132,6 +133,7 @@ def send_traceback():
         # We have a tty, show traceback on stdout
         print(traceback.format_exc())
     else:
+        print("Sending email to developer")
         from ablib.email1 import Email
         msg = "<pre>\n"
         msg += "arguments:\n"
@@ -143,15 +145,18 @@ def send_traceback():
         msg += "</pre>"
         print(msg)
         email = Email()
-        email.send(recipient="anders@abundo.se",
-                    sender="noreply@piteenergi.se",
-                    subject="%s %s program error" % (platform.node(), sys.argv[0]),
-                    msg=msg)
+        email.send(
+            recipient="anders@abundo.se",
+            sender="noreply@piteenergi.se",
+            subject="%s %s program error" % (platform.node(), sys.argv[0]),
+            msg=msg
+        )
 
 
-def write_etc_hosts_file(elements):
+def write_etc_hosts_file(devices):
     """
-    Update /etc/hosts file with all elements from element API
+    Update /etc/hosts file with all devices primary_ipv4, from device-api
+    Note: If you change the delemiter, you need to manually cleanup the hosts file
     """
     delemiter = "# ----- do not edit below - updated by a script -----"
     with open("/etc/hosts", "r+") as f:
@@ -159,13 +164,16 @@ def write_etc_hosts_file(elements):
         while line:
             line = line.strip()
             if line == delemiter:
-                print("  Delemiter found, writing %d entries." % len(elements))
+                print("  Delemiter found, writing %d entries." % len(devices))
                 f.seek(f.tell())
-                for hostname, element in elements.items():
-                    if 'ipv4_addr' in element and element["ipv4_addr"]:
-                        if element['ipv4_addr'] != hostname:
-                            short_hostname = hostname
-                            tmp = "%-18s %s" % (element["ipv4_addr"], hostname)
+                for hostname, device in devices.items():
+                    primary_ip4 = device.get("primary_ip4", None)
+                    # primary_ip6 = device.get("primary_ip6", None)
+                    if primary_ip4:
+                        addr4 = primary_ip4.address.split("/")[0]
+                        if addr4 != hostname:
+                            # short_hostname = hostname
+                            tmp = "%-18s %s" % (addr4, hostname)
                             p = hostname.find(".")
                             if p >= 0:
                                 tmp += "  %s" % hostname[:p]
