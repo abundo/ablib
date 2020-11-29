@@ -158,8 +158,9 @@ class Librenms_Mgr:
         parent_ids = []
         for parent_name in parent:
             parent_name = self._format_name(parent_name)
-            parent_data = self.devices[parent_name]
-            parent_ids.append(str(parent_data["device_id"]))
+            parent_data = self.devices.get(parent_name, None)
+            if parent_data:
+                parent_ids.append(str(parent_data["device_id"]))
         data = AttrDict(parent_ids=",".join(parent_ids))
         try:
             r = self.call_api(method="POST", endpoint=f"/devices/{device_id}/parents", data=data)
