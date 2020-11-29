@@ -38,13 +38,13 @@ class Device_Mgr:
 
     def load_devices(self):
         self.devices = {}
-        r = requests.get(url=self.config.devices.api.url)
+        r = requests.get(url=self.config.api.url)
         self.devices = json.loads(r.text, object_pairs_hook=AttrDict)
 
     def get_device(self, name=None):
         if name in self.devices:
             return self.devices[name].values()
-        r = requests.get(url=self.config.devices.api.url + "/" + name)
+        r = requests.get(url=self.config.api.url + "/" + name)
         device = json.loads(r.text, object_pairs_hook=AttrDict)
         for d in device.values():
             return d
