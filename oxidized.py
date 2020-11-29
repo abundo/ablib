@@ -77,7 +77,7 @@ class Oxidized_Mgr:
             for name, device in devices.items():
                 if device.primary_ip4:
                     model = device.platform   # device-api 'platform' is called 'model' in oxidized
-                    addr4 = device.primary_ip4.split("/")[0]
+                    addr4 = device.primary_ip4.address.split("/")[0]
                     if name == addr4:
                         f.write(f"{addr4}:{model}\n")
                     else:
