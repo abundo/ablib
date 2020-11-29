@@ -15,6 +15,7 @@ from orderedattrdict import AttrDict
 # my modules
 import ablib.utils as abutils
 
+
 # ----- Start of configuration items -----
 
 CONFIG_FILE = "/etc/abcontrol/abcontrol.yaml"
@@ -39,6 +40,7 @@ class Host_State(AttrDict):
         self.notes = ""
 
         self.pe_comments = ""
+        self.pe_location = ""
         self.pe_manufacturer = ""
         self.pe_model = ""
         self.pe_platform = ""
@@ -141,6 +143,7 @@ class Icinga:
             state.last_hard_state_changed = self.get(host, "attrs.last_hard_state_change")
             state.last_hard_state_changed = abutils.dt_from_timestamp(state.last_hard_state_changed)
             state.notes = self.get(host, "attrs.notes")
+            state.pe_location = self.get(host, "attrs.vars.pe_location")
             state.pe_comments = self.get(host, "attrs.vars.pe_comments")
             state.pe_manufacturer = self.get(host, "attrs.vars.pe_manufacturer")
             state.pe_model = self.get(host, "attrs.vars.pe_model")
@@ -242,22 +245,36 @@ def main():
     except abutils.UtilException as err:
         abutils.die("Cannot load configuration file, err: %s" % err)
 
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('cmd', choices=[
+        "get_hosts_down",
+        "get_services_down",
+        "show_events",
+    ])
+    parser.add_argument("--name", default=None)
+    parser.add_argument("--parent", default=[], action="append")
+    parser.add_argument("--pretty", default=False, action="store_true")
+    args = parser.parse_args()
+    cmd = args.cmd
+
     icinga = Icinga(config=config.icinga)
 
-    if 0:
+    if cmd == "get_hosts_down":
         print("Hosts down, not acknowledged")
         state_down = icinga.get_hosts_down()
         for state in state_down:
             abutils.pprint(state)
             print()
-    if 0:
+
+    elif args.cmd == "get_services_down":
         print("Services down, not acknowledged")
         state_down = icinga.get_services_down()
         for state in state_down:
             abutils.pprint(state)
             print()
-    
-    if 1:
+
+    elif args.cmd == "show_events":
         import signal
         global running
         running = True
@@ -273,227 +290,14 @@ def main():
         for line in r.iter_lines(decode_unicode=True):
             if running:
                 if line:
-                    print(json.loads(line))
+                    data = json.loads(line)
+                    abutils.pprint(data)
             else:
                 break
+    
+    else:
+        print(f"Internal error, cmd {args.cmd}")
 
 
 if __name__ == "__main__":
     main()
-
-
-"""
-Example output
-
-HOST
-
-{   'attrs': {   '__name': 'asw1040.net.piteenergi.se',
-                 'acknowledgement': 0.0,
-                 'acknowledgement_expiry': 0.0,
-                 'action_url': '',
-                 'active': True,
-                 'address': '10.20.9.40',
-                 'address6': '',
-                 'check_attempt': 1.0,
-                 'check_command': 'hostalive',
-                 'check_interval': 60.0,
-                 'check_period': '',
-                 'check_timeout': None,
-                 'command_endpoint': '',
-                 'display_name': 'asw1040.net.piteenergi.se',
-                 'downtime_depth': 0.0,
-                 'enable_active_checks': True,
-                 'enable_event_handler': True,
-                 'enable_flapping': False,
-                 'enable_notifications': True,
-                 'enable_passive_checks': True,
-                 'enable_perfdata': True,
-                 'event_command': '',
-                 'flapping': False,
-                 'flapping_current': 0.0,
-                 'flapping_last_change': 0.0,
-                 'flapping_threshold': 0.0,
-                 'flapping_threshold_high': 30.0,
-                 'flapping_threshold_low': 25.0,
-                 'force_next_check': False,
-                 'force_next_notification': False,
-                 'groups': [],
-                 'ha_mode': 0.0,
-                 'icon_image': '',
-                 'icon_image_alt': '',
-                 'last_check': 1567509489.841116,
-                 'last_check_result': {   'active': True,
-                                          'check_source': 'peicinga.net.piteenergi.se',
-                                          'command': [   '/usr/lib/nagios/plugins/check_ping',
-                                                         '-H',
-                                                         '10.20.9.40',
-                                                         '-c',
-                                                         '5000,100%',
-                                                         '-w',
-                                                         '3000,80%'],
-                                          'execution_end': 1567509489.841052,
-                                          'execution_start': 1567509459.837625,
-                                          'exit_status': 2.0,
-                                          'output': 'PING CRITICAL - Packet '
-                                                    'loss = 100%',
-                                          'performance_data': [   'rta=5000.000000ms;3000.000000;5000.000000;0.000000',
-                                                                  'pl=100%;80;100;0'],
-                                          'schedule_end': 1567509489.841116,
-                                          'schedule_start': 1567509459.837365,
-                                          'state': 2.0,
-                                          'ttl': 0.0,
-                                          'type': 'CheckResult',
-                                          'vars_after': {   'attempt': 1.0,
-                                                            'reachable': True,
-                                                            'state': 2.0,
-                                                            'state_type': 1.0},
-                                          'vars_before': {   'attempt': 1.0,
-                                                             'reachable': True,
-                                                             'state': 2.0,
-                                                             'state_type': 1.0}},
-                 'last_hard_state': 1.0,
-                 'last_hard_state_change': 1561193227.707049,
-                 'last_reachable': True,
-                 'last_state': 1.0,
-                 'last_state_change': 1561192933.938269,
-                 'last_state_down': 1567509489.841129,
-                 'last_state_type': 1.0,
-                 'last_state_unreachable': 0.0,
-                 'last_state_up': 1561192845.184672,
-                 'max_check_attempts': 6.0,
-                 'name': 'asw1040.net.piteenergi.se',
-                 'next_check': 1567509547.951139,
-                 'notes': '',
-                 'notes_url': '',
-                 'original_attributes': None,
-                 'package': '_etc',
-                 'paused': False,
-                 'retry_interval': 30.0,
-                 'severity': 136.0,
-                 'source_location': {   'first_column': 1.0,
-                                        'first_line': 746.0,
-                                        'last_column': 39.0,
-                                        'last_line': 746.0,
-                                        'path': '/etc/icinga2/conf.d/gen-hosts.conf'},
-                 'state': 1.0,
-                 'state_type': 1.0,
-                 'templates': ['asw1040.net.piteenergi.se', 'generic-host'],
-                 'type': 'Host',
-                 'vars': {   'notification': {   'mail': {   'groups': [   'icingaadmins']}},
-                             'pe_comments': 'Traversvägen 7',
-                             'pe_manufacturer': 'Cisco',
-                             'pe_model': 'SG300-10',
-                             'pe_platform': 'ciscosmb',
-                             'pe_role': 'Access-switch kundplacerad',
-                             'pe_site_name': ''},
-                 'version': 0.0,
-                 'volatile': False,
-                 'zone': ''},
-    'joins': {},
-    'meta': {},
-    'name': 'asw1040.net.piteenergi.se',
-    'type': 'Host'}
-
-
-SERVICE
-
-{   'attrs': {   '__name': 'becs.net.piteenergi.se!DHCP Scope Ownit_Inet - '
-                           'summary',
-                 'acknowledgement': 0.0,
-                 'acknowledgement_expiry': 0.0,
-                 'action_url': '',
-                 'active': True,
-                 'check_attempt': 1.0,
-                 'check_command': 'passive',
-                 'check_interval': 3600.0,
-                 'check_period': '',
-                 'check_timeout': None,
-                 'command_endpoint': '',
-                 'display_name': 'DHCP Scope Ownit_Inet - summary',
-                 'downtime_depth': 0.0,
-                 'enable_active_checks': False,
-                 'enable_event_handler': True,
-                 'enable_flapping': False,
-                 'enable_notifications': True,
-                 'enable_passive_checks': True,
-                 'enable_perfdata': True,
-                 'event_command': '',
-                 'flapping': False,
-                 'flapping_current': 11.200000000000001,
-                 'flapping_last_change': 0.0,
-                 'flapping_threshold': 0.0,
-                 'flapping_threshold_high': 30.0,
-                 'flapping_threshold_low': 25.0,
-                 'force_next_check': False,
-                 'force_next_notification': False,
-                 'groups': [],
-                 'ha_mode': 0.0,
-                 'host_name': 'becs.net.piteenergi.se',
-                 'icon_image': '',
-                 'icon_image_alt': '',
-                 'last_check': 1567509063.0,
-                 'last_check_result': {   'active': False,
-                                          'check_source': 'peicinga.net.piteenergi.se',
-                                          'command': None,
-                                          'execution_end': 1567509063.0,
-                                          'execution_start': 1567509063.0,
-                                          'exit_status': 0.0,
-                                          'output': '15 free addresses, 171 '
-                                                    'assigned addresses',
-                                          'performance_data': [],
-                                          'schedule_end': 1567509063.0,
-                                          'schedule_start': 1567509063.0,
-                                          'state': 1.0,
-                                          'ttl': 0.0,
-                                          'type': 'CheckResult',
-                                          'vars_after': {   'attempt': 1.0,
-                                                            'reachable': True,
-                                                            'state': 1.0,
-                                                            'state_type': 1.0},
-                                          'vars_before': {   'attempt': 1.0,
-                                                             'reachable': True,
-                                                             'state': 1.0,
-                                                             'state_type': 1.0}},
-                 'last_hard_state': 1.0,
-                 'last_hard_state_change': 1567505462.865385,
-                 'last_reachable': True,
-                 'last_state': 1.0,
-                 'last_state_change': 1567505462.865385,
-                 'last_state_critical': 1567501862.241972,
-                 'last_state_ok': 1557994262.542834,
-                 'last_state_type': 1.0,
-                 'last_state_unknown': 0.0,
-                 'last_state_unreachable': 0.0,
-                 'last_state_warning': 1567509063.069148,
-                 'max_check_attempts': 6.0,
-                 'name': 'DHCP Scope Ownit_Inet - summary',
-                 'next_check': 1567512663.069156,
-                 'notes': '',
-                 'notes_url': '',
-                 'original_attributes': None,
-                 'package': '_etc',
-                 'paused': False,
-                 'retry_interval': 30.0,
-                 'severity': 40.0,
-                 'source_location': {   'first_column': 1.0,
-                                        'first_line': 109.0,
-                                        'last_column': 47.0,
-                                        'last_line': 109.0,
-                                        'path': '/etc/icinga2/conf.d/becs_dhcp_scopes.conf'},
-                 'state': 1.0,
-                 'state_type': 1.0,
-                 'templates': [   'DHCP Scope Ownit_Inet - summary',
-                                  'dhcp-scope-free-addresses',
-                                  'generic-service'],
-                 'type': 'Service',
-                 'vars': None,
-                 'version': 0.0,
-                 'volatile': False,
-                 'zone': ''},
-    'joins': {},
-    'meta': {},
-    'name': 'becs.net.piteenergi.se!DHCP Scope Ownit_Inet - summary',
-    'type': 'Service'}
-
-
-"""

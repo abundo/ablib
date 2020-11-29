@@ -65,8 +65,8 @@ def json_serial(obj):
     return obj.to_dict()
 
 
-def json_dumps(data):
-    return json.dumps(data, default=json_serial)
+def json_dumps(data, fp=None, **kwargs):
+    return json.dump(data, fp=fp, default=json_serial, **kwargs)
 
 
 def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=AttrDict):
