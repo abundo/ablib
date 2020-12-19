@@ -60,6 +60,40 @@ class Device_Mgr:
             return device.interfaces
         return None
 
+    def write_etc_hosts(self, devices=None):
+        """
+        Update /etc/hosts file with all devices primary_ipv4, from device-api
+        Note: If you change the delemiter, you need to manually cleanup the hosts file
+        """
+        delemiter = "# ----- do not edit below - updated by a script -----"
+        if devices is None:
+            devices = self.devices
+        if not devices:
+            raise DeviceException("Error: Cannot update /etc/hosts with zero devices")
+        with open("/etc/hosts", "r+") as f:
+            line = f.readline()
+            while line:
+                line = line.strip()
+                if line == delemiter:
+                    print("  Delemiter found, writing %d entries." % len(devices))
+                    f.seek(f.tell())
+                    for hostname, device in devices.items():
+                        primary_ip4 = device.get("primary_ip4", None)
+                        # primary_ip6 = device.get("primary_ip6", None)
+                        if primary_ip4:
+                            addr4 = primary_ip4.address.split("/")[0]
+                            if addr4 != hostname:
+                                # short_hostname = hostname
+                                tmp = "%-18s %s" % (addr4, hostname)
+                                p = hostname.find(".")
+                                if p >= 0:
+                                    tmp += "  %s" % hostname[:p]
+                                f.write("%s\n" % tmp)
+                    f.write("# ----- end -----\n")
+                    f.truncate()
+                    return
+                line = f.readline()
+
 
 def main():
     """
@@ -71,19 +105,20 @@ def main():
         "get_devices",
         "get_device",
         "get_device_interfaces",
+        "write_etc_hosts",
     ])
     parser.add_argument("-n-", "--name", default=None)
     args = parser.parse_args()
 
     config = abutils.load_config(CONFIG_FILE)
 
-    device_mgr = Device_Mgr(config=config)
+    device_mgr = Device_Mgr(config=config.device)
 
-    if args.cmd == 'get_device':
+    if args.cmd == "get_device":
         device = device_mgr.get_device(name=args.name)
         print(device)
 
-    elif args.cmd == 'get_devices':
+    elif args.cmd == "get_devices":
         devices = device_mgr.get_devices()
         for name, device in devices.items():
             print(name, device)
@@ -92,6 +127,10 @@ def main():
     elif args.cmd == "get_device_interfaces":
         interfaces = device_mgr.get_device_interfaces(name=args.name)
         print(interfaces)
+
+    elif args.cmd == "write_etc_hosts":
+        devices = device_mgr.get_devices()
+        device_mgr.write_etc_hosts()
 
     else:
         print("Unknown command %s" % args.cmd)

@@ -153,37 +153,6 @@ def send_traceback():
         )
 
 
-def write_etc_hosts_file(devices):
-    """
-    Update /etc/hosts file with all devices primary_ipv4, from device-api
-    Note: If you change the delemiter, you need to manually cleanup the hosts file
-    """
-    delemiter = "# ----- do not edit below - updated by a script -----"
-    with open("/etc/hosts", "r+") as f:
-        line = f.readline()
-        while line:
-            line = line.strip()
-            if line == delemiter:
-                print("  Delemiter found, writing %d entries." % len(devices))
-                f.seek(f.tell())
-                for hostname, device in devices.items():
-                    primary_ip4 = device.get("primary_ip4", None)
-                    # primary_ip6 = device.get("primary_ip6", None)
-                    if primary_ip4:
-                        addr4 = primary_ip4.address.split("/")[0]
-                        if addr4 != hostname:
-                            # short_hostname = hostname
-                            tmp = "%-18s %s" % (addr4, hostname)
-                            p = hostname.find(".")
-                            if p >= 0:
-                                tmp += "  %s" % hostname[:p]
-                            f.write("%s\n" % tmp)
-                f.write("# ----- end -----\n")
-                f.truncate()
-                return
-            line = f.readline()
-
-
 class BaseCLI:
 
     def __init__(self):
