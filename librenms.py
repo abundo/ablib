@@ -231,6 +231,38 @@ class Librenms_Mgr:
         self.locations = self.db.select_all(sql)
         return self.locations
 
+    def get_location(self, location=None):
+        """
+        No API, read from database
+        """
+        sql = "SELECT * FROM locations WHERE location=%s"
+        self.locations = self.db.select_all(sql, (location),)
+        return self.locations
+
+    def set_device_location(self, device_id: int = None, location: str = None, lat: float = None, lng: float = None):
+        sql = "SELECT id FROM locations WHERE location = %s"
+        row = self.db.select_one(sql, (location),)
+        if row:
+            # Location exist, use it
+            location_id = row.id
+        else:
+            # Location does not exist, create one
+            d = AttrDict(location=location)
+            if lat:
+                d.lat = lat
+            if lng:
+                d.lng = lng
+            location_id = self.db.insert("locations", d=d)
+
+            #sql = "INSERT INTO locations (location) VALUES (%s)"
+            #self.db._execute(sql, (location),)
+            #location_id = self.db.last_insert_id()
+
+        # Update device location_id
+        d = AttrDict(device_id=device_id, location_id=location_id)
+        r = self.db.update("devices", d, "device_id")
+        return r
+
 
 def main():
     """
@@ -253,10 +285,15 @@ def main():
         "set_device_parent",
         "delete_device_parent",
         "get_locations",
+        "get_location",
+        "set_device_location",
     ])
     parser.add_argument("-n", "--name", default=None)
     parser.add_argument("--parent", default=[], action="append")
     parser.add_argument("--pretty", default=False, action="store_true")
+    parser.add_argument("--location")
+    parser.add_argument("--lat")
+    parser.add_argument("--lng")
     args = parser.parse_args()
     cmd = args.cmd
 
@@ -311,6 +348,19 @@ def main():
     elif cmd == "get_locations":
         locations = librenms_mgr.get_locations()
         abutils.pprint(locations)
+
+    elif cmd == "get_location":
+        location = librenms_mgr.get_location(args.name)
+        abutils.pprint(location)
+
+    elif cmd == "set_device_location":
+        device = librenms_mgr.get_device(name=args.name)
+
+        r = librenms_mgr.set_device_location(
+            device_id=device.device_id,
+            location=args.location,
+            lat=args.lat,
+            lng=args.lng)
 
     else:
         abutils.die(f"Unknown command {cmd}")
