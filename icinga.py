@@ -76,7 +76,7 @@ class Icinga:
             for key in keys.split("."):
                 attr = attr[key]
             return attr
-        except KeyError:
+        except (KeyError, TypeError):
             print("didnt find %s" % keys)
             return default
 
