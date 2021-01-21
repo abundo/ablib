@@ -202,3 +202,56 @@ class MyCLI:
         for cmd in self.cmds:
             print("   ", cmd)
         sys.exit(1)
+
+
+class Name:
+    """
+    Handle device name
+
+    .long  is always name, fully qualified
+    .short is always name without default domain
+
+    Example, if default domain is .example.com:
+
+    The name
+        device1.example.com
+    becomes
+        short: device1
+        long:  device1.example.com
+
+    The name
+        device2.example.net
+    becomes
+        short: device2.example.net
+        long:  device2.example.net
+
+    The name
+        device3
+    becomes
+        short: device3
+        long:  device3.example.com
+
+    The name
+        device4.example.net
+    becomes
+        short: device4.example.net
+        long:  device4.example.net
+
+    """
+    default_domain = ""
+
+    def __init__(self, name: str):
+        if name is None:
+            name = ""
+        if "." in name:
+            self.long = name
+            if name.endswith(self.default_domain):
+                self.short = name[:-len(self.default_domain) - 1]
+            else:
+                self.short = name
+        else:
+            self.long = f"{name}.{self.default_domain}"
+            self.short = name
+
+    def __str__(self):
+        return self.short
