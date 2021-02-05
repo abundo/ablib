@@ -170,7 +170,7 @@ class Icinga:
         }
         postdata = {
             # "attrs": [ "name", "state", "acknowledgement"]
-            "filter": "service.state!=0 && service.acknowledgement==0"
+            "filter": "service.state > 0 && service.state < 3 && service.acknowledgement==0"
         }
         url = self.config.api.url + "/v1/objects/services"
         r = requests.get(
