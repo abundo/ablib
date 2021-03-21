@@ -17,6 +17,9 @@ import datetime
 # modules installed with pip
 from orderedattrdict import AttrDict
 
+BUG_REPORT_RECIPIENT = "lowinger42+abcontrol-bugs@gmail.com"
+BUG_REPORT_SENDER = "noreply@gmail.com"
+
 pp = pprint.PrettyPrinter(indent=4)
 
 
@@ -146,8 +149,8 @@ def send_traceback():
         print(msg)
         email = Email()
         email.send(
-            recipient="anders@abundo.se",
-            sender="noreply@piteenergi.se",
+            recipient=BUG_REPORT_RECIPIENT,
+            sender=BUG_REPORT_SENDER,
             subject="%s %s program error" % (platform.node(), sys.argv[0]),
             msg=msg
         )
