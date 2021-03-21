@@ -30,7 +30,7 @@ class BECS_Mgr:
     def __init__(self, config=None):
         self.config = config
 
-        self.client = zeep.Client(wsdl=self.config.becs.eapi,
+        self.client = zeep.Client(wsdl=self.config.becs.eapi.url,
                                   settings=zeep.Settings(strict=False)
                                   )
         self.elements_oid = {}         # key is oid, value is object
@@ -39,8 +39,8 @@ class BECS_Mgr:
 
     def login(self):
         self.session = self.client.service.sessionLogin({
-            "username": self.config.becs.username,
-            "password": self.config.becs.password,
+            "username": self.config.becs.eapi.username,
+            "password": self.config.becs.eapi.password,
         })
         self._soapheaders = {
             "request": {"sessionid": self.session["sessionid"]},
@@ -214,6 +214,7 @@ def main():
     """
     Function tests
     """
+    global config
     config = abutils.load_config(CONFIG_FILE)
 
     import argparse
@@ -234,7 +235,7 @@ def main():
             print(name, element)
         print(f"Got{len(elements)} elements")
 
-    elif args.cmd == "get_elements":
+    elif args.cmd == "get_element":
         element = becs_mgr.get_device(name=args.name)
         print(element)
 
@@ -244,3 +245,7 @@ def main():
 
     else:
         print("Unknown command %s" % args.cmd)
+
+
+if __name__ == "__main__":
+    main()
