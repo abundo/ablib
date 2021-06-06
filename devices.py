@@ -31,6 +31,7 @@ class Device_Mgr:
 
     def __init__(self, config=None):
         self.config = config
+        self.verify = self.config.get("verify", True)
         self.devices = {}
 
     def __len__(self):
@@ -38,13 +39,13 @@ class Device_Mgr:
 
     def load_devices(self):
         self.devices = {}
-        r = requests.get(url=self.config.api.url)
+        r = requests.get(url=self.config.url, verify=self.verify)
         self.devices = json.loads(r.text, object_pairs_hook=AttrDict)
 
     def get_device(self, name=None):
         if name in self.devices:
             return self.devices[name].values()
-        r = requests.get(url=self.config.api.url + "/" + name)
+        r = requests.get(url=self.config.url + "/" + name, verify=self.verify)
         device = json.loads(r.text, object_pairs_hook=AttrDict)
         for d in device.values():
             return d
