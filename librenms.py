@@ -114,12 +114,16 @@ class Librenms_Mgr:
         self._load_devices()
         return self.devices
     
-    def create_device(self, name=None, force_add=0):
+    def create_device(self, name=None, force_add=0, version=None, community=None):
         name = self._format_name(name)
         data = AttrDict()
         data.hostname = name
         data.version = self.config.librenms.snmp.version
         data.force_add = force_add
+        if version:
+            data.version = version
+        if community:
+            data.community = community
 
         try:
             r = self.call_api(method="POST", endpoint="/devices", data=data)
