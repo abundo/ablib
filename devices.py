@@ -40,7 +40,11 @@ class Device_Mgr:
     def load_devices(self):
         self.devices = {}
         r = requests.get(url=self.config.url, verify=self.verify)
-        self.devices = json.loads(r.text, object_pairs_hook=AttrDict)
+        tmp_devices = json.loads(r.text, object_pairs_hook=AttrDict)
+        self.devices = AttrDict()
+        for device in tmp_devices.devices:
+            name = device.hostname.lower()
+            self.devices[name] = device
 
     def get_device(self, name=None):
         if name in self.devices:
