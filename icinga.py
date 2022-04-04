@@ -18,7 +18,7 @@ import ablib.utils as abutils
 
 # ----- Start of configuration items -----
 
-CONFIG_FILE = "/etc/abcontrol/abcontrol.yaml"
+CONFIG_FILE = "/etc/factum/factum.yaml"
 
 # ----- End of configuration items -----
 
