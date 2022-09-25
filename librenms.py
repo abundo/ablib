@@ -116,7 +116,9 @@ class Librenms_Mgr:
         except (KeyError, TypeError):
             raise LibrenmsException(f"Unknown device with name {name}")
 
-    def get_devices(self):
+    def get_devices(self, refresh=False):
+        if refresh:
+            self.clear_cache()
         self._load_devices()
         return self.devices
     
