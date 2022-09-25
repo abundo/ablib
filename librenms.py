@@ -102,12 +102,18 @@ class Librenms_Mgr:
             name = name + "." + self.config.default_domain
         return name
 
-    def get_device(self, name=None):
+    def get_device(self, name=None, device_id=None):
         self._load_devices()
-        name = self._format_name(name)
+        if device_id:
+            for name, device in self.devices.items():
+                if device.device_id == device_id:
+                    return device
+            raise LibrenmsException(f"Unknown device with device_id {device_id}")
+        
         try:
+            name = self._format_name(name)
             return self.devices[name]
-        except TypeError:
+        except (KeyError, TypeError):
             raise LibrenmsException(f"Unknown device with name {name}")
 
     def get_devices(self):
