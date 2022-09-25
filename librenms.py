@@ -79,14 +79,20 @@ class Librenms_Mgr:
         except requests.exceptions.HTTPError as err:
             raise LibrenmsException("Cannot load librenms interfaces into memory: %s" % err)
 
-    def _load_locations(self):
+    def _load_locations(self, refresh=True):
         """
         Load all librenms locations into memory
         """
+        if not refresh:
+            if self.locations:
+                return
         try:
-            r = self.call_api(endpoint="/ports?columns=port_id,device_id,ifName")
-            # r = requests.get(url=url, headers=headers)
-            self.locations = json.loads(r.text, object_pairs_hook=AttrDict)
+            r = self.call_api(endpoint="/resources/locations")
+            locations = AttrDict()
+            data = json.loads(r.text, object_pairs_hook=AttrDict)
+            for location in data["locations"]:
+                locations[location.location] = location
+            self.locations = locations
         except requests.exceptions.HTTPError as err:
             raise LibrenmsException("Cannot load librenms interfaces into memory: %s" % err)
 
@@ -96,6 +102,7 @@ class Librenms_Mgr:
         """
         self.devices = AttrDict()
         self.interfaces = AttrDict()
+        self.locations = AttrDict()
 
     def _format_name(self, name):
         if name.find('.') < 0:
@@ -114,7 +121,8 @@ class Librenms_Mgr:
         self._load_devices()
         return self.devices
     
-    def create_device(self, name=None, force_add=0, version=None, community=None):
+#    def create_device(self, name=None, force_add=0):
+    def create_device(self, name=None, force_add=0, version=None, community=None):       
         name = self._format_name(name)
         data = AttrDict()
         data.hostname = name
@@ -229,43 +237,120 @@ class Librenms_Mgr:
 
     def get_locations(self):
         """
-        No API, read from database
+        Returns all locations as a dict. Key is location string
         """
-        sql = "SELECT * FROM locations"
-        self.locations = self.db.select_all(sql)
+        self._load_locations()
         return self.locations
 
-    def get_location(self, location=None):
+    def get_location(self, location=None, location_id=None):
         """
-        No API, read from database
-        """
-        sql = "SELECT * FROM locations WHERE location=%s"
-        self.locations = self.db.select_all(sql, (location),)
-        return self.locations
+        Get a location
+        This API does not exist in Librenms, use the in-memory cache of all locations
 
-    def set_device_location(self, device_id: int = None, location: str = None, lat: float = None, lng: float = None):
-        sql = "SELECT id FROM locations WHERE location = %s"
-        row = self.db.select_one(sql, (location),)
-        if row:
-            # Location exist, use it
-            location_id = row.id
+        If location is not None use it, otherwise use location_id
+        If location not found, return None
+        """
+        self._load_locations()
+        if location:
+            if location in self.locations:
+                return self.locations[location]
+            return None
+        for location in self.locations:
+            if location.id == location_id:
+                return location
+        return None
+
+    def add_location(self, location: str=None, lat: float=None, lng: float=None):
+        """
+        Add a location
+        Returns location_id if successfull else None
+        """
+        data = AttrDict(location=location)
+        if lat:
+            data.lat = lat
         else:
-            # Location does not exist, create one
-            d = AttrDict(location=location)
-            if lat:
-                d.lat = lat
-            if lng:
-                d.lng = lng
-            location_id = self.db.insert("locations", d=d)
+            data.lat = 0.001
+        if lng:
+            data.lng = lng
+        else:
+            data.lng = 0.001
+        r = self.call_api(method="POST", endpoint=f"/locations", data=data)
+        res = r.json()
+        print("res", res)
+        if res.get("status", "") != "ok":
+            return None
+        location_id = int(res["message"].split("#")[1])
 
-            #sql = "INSERT INTO locations (location) VALUES (%s)"
-            #self.db._execute(sql, (location),)
-            #location_id = self.db.last_insert_id()
+        # Librenms add_location requires lat, lng
+        # edit_location accepts None, so adjust
+        r = self.edit_location(location=location_id, lat=lat, lng=lng)
 
-        # Update device location_id
-        d = AttrDict(device_id=device_id, location_id=location_id)
-        r = self.db.update("devices", d, "device_id")
-        return r
+        self._load_locations(refresh=True)
+        return location_id
+
+    def delete_location(self, location: str=None):
+        """
+        Delete a location
+        Returns True if ok
+        """
+        r = self.call_api(method="DELETE", endpoint=f"/locations/{location}")
+        res = r.json()
+        if res.get("status", "") != "ok":
+            return False
+        self._load_locations(refresh=True)
+        return True
+
+    def edit_location(self, location: str=None, lat: float=None, lng: float=None):
+        """
+        Update a location data
+        Returns True if ok
+        """
+        data = AttrDict()
+        if lat:
+            data.lat = lat
+        if lng:
+            data.lng = lng
+        if not data:
+            return True    # No change        
+
+        r = self.call_api(method="PATCH", endpoint=f"/locations/{location}", data=data)
+        res = r.json()
+        if res.get("status", "") != "ok":
+            return False
+        self._load_locations(refresh=True)
+        return True
+
+    def set_device_location(self, name=None, location: str = None, lat: float = None, lng: float = None):
+        """
+        Set the location on a device
+        Returns True if ok
+        """
+        loc = self.get_location(location)
+        if loc:
+            location_id = loc.id
+            # location exist, check if data is modified
+            data = AttrDict()
+            if loc.lng != lng:
+                data.lng = lng
+            if loc.lat != lat:
+                data.lat = lat
+            if len(data):
+                res = self.edit_location(location=location, lat=lat, lng=lng)
+                if not res:
+                    raise KeyError("Location could not be updated")
+                loc = self.get_location(location)
+                if loc is None:
+                    raise KeyError("Location could not be retrieved after update")
+
+        else:
+            # location does not exist, create new location
+            location_id = self.add_location(location=location, lat=lat, lng=lng)
+            if not location_id:
+                raise KeyError("Location could not be created")
+
+        data = AttrDict(location_id=location_id)
+        r = self.update_device(name=name, data=data)
+        return r.get("status", "") == "ok"
 
 
 def main():
@@ -296,8 +381,8 @@ def main():
     parser.add_argument("--parent", default=[], action="append")
     parser.add_argument("--pretty", default=False, action="store_true")
     parser.add_argument("--location")
-    parser.add_argument("--lat")
-    parser.add_argument("--lng")
+    parser.add_argument("--lat", type=float)
+    parser.add_argument("--lng", type=float)
     args = parser.parse_args()
     cmd = args.cmd
 
@@ -358,10 +443,13 @@ def main():
         abutils.pprint(location)
 
     elif cmd == "set_device_location":
-        device = librenms_mgr.get_device(name=args.name)
+        if not args.name:
+            abutils.die("Name is required")
+        if not args.location:
+            abutils.die("Location is required")
 
         r = librenms_mgr.set_device_location(
-            device_id=device.device_id,
+            name=args.name,
             location=args.location,
             lat=args.lat,
             lng=args.lng)
