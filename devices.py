@@ -117,7 +117,7 @@ def main():
 
     config = abutils.load_config(CONFIG_FILE)
 
-    device_mgr = Device_Mgr(config=config.device)
+    device_mgr = Device_Mgr(config=config.api.device)
 
     if args.cmd == "get_device":
         device = device_mgr.get_device(name=args.name)
