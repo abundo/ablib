@@ -39,13 +39,13 @@ class Host_State(AttrDict):
 
         self.notes = ""
 
-        self.pe_comments = ""
-        self.pe_location = ""
-        self.pe_manufacturer = ""
-        self.pe_model = ""
-        self.pe_platform = ""
-        self.pe_role = ""
-        self.pe_site_name = ""
+        self.factum_comments = ""
+        self.factum_location = ""
+        self.factum_manufacturer = ""
+        self.factum_model = ""
+        self.factum_platform = ""
+        self.factum_role = ""
+        self.factum_site_name = ""
 
 
 class Service_State(AttrDict):
@@ -143,13 +143,13 @@ class Icinga:
             state.last_hard_state_changed = self.get(host, "attrs.last_hard_state_change")
             state.last_hard_state_changed = abutils.dt_from_timestamp(state.last_hard_state_changed)
             state.notes = self.get(host, "attrs.notes")
-            state.pe_location = self.get(host, "attrs.vars.pe_location")
-            state.pe_comments = self.get(host, "attrs.vars.pe_comments")
-            state.pe_manufacturer = self.get(host, "attrs.vars.pe_manufacturer")
-            state.pe_model = self.get(host, "attrs.vars.pe_model")
-            state.pe_platform = self.get(host, "attrs.vars.pe_platform")
-            state.pe_role = self.get(host, "attrs.vars.pe_role")
-            state.pe_site_name = self.get(host, "attrs.vars.pe_site_name")
+            state.factum_location = self.get(host, "attrs.vars.factum_location")
+            state.factum_comments = self.get(host, "attrs.vars.factum_comments")
+            state.factum_manufacturer = self.get(host, "attrs.vars.factum_manufacturer")
+            state.factum_model = self.get(host, "attrs.vars.factum_model")
+            state.factum_platform = self.get(host, "attrs.vars.factum_platform")
+            state.factum_role = self.get(host, "attrs.vars.factum_role")
+            state.factum_site_name = self.get(host, "attrs.vars.factum_site_name")
 
             result.append(state)
 
