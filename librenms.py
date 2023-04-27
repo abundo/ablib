@@ -109,15 +109,23 @@ class Librenms_Mgr:
             name = name + "." + self.config.default_domain
         return name
 
-    def get_device(self, name=None):
+    def get_device(self, name=None, device_id=None):
         self._load_devices()
-        name = self._format_name(name)
+        if device_id:
+            for name, device in self.devices.items():
+                if device.device_id == device_id:
+                    return device
+            raise LibrenmsException(f"Unknown device with device_id {device_id}")
+        
         try:
+            name = self._format_name(name)
             return self.devices[name]
-        except TypeError:
+        except (KeyError, TypeError):
             raise LibrenmsException(f"Unknown device with name {name}")
 
-    def get_devices(self):
+    def get_devices(self, refresh=False):
+        if refresh:
+            self.clear_cache()
         self._load_devices()
         return self.devices
     
@@ -162,24 +170,58 @@ class Librenms_Mgr:
         except requests.exceptions.HTTPError as err:
             raise LibrenmsException(f"Error deleting device {name}: {err}")
 
-    def set_device_parent(self, device_id=None, parent=None):
+    def set_device_parent(self, name=None, device_id=None, parents=None):
         """
         Set parents on a device
-        parent is a list, each entry is one parent name
+        parents is a list, each entry is one parent name
+
+        Librenms does not have corresponding api, we get the current parents from the device,
+        then remove/add parents until we have the desired list
         """
-        parent_ids = []
-        for parent_name in parent:
-            parent_name = self._format_name(parent_name)
-            parent_data = self.devices.get(parent_name, None)
-            if parent_data:
-                parent_ids.append(str(parent_data["device_id"]))
-        data = AttrDict(parent_ids=",".join(parent_ids))
-        try:
-            r = self.call_api(method="POST", endpoint=f"/devices/{device_id}/parents", data=data)
-            # todo update cache
+        # get current parents
+        device_parents_id = AttrDict()
+        device_parents_name = AttrDict()
+        device = self.get_device(name=name, device_id=device_id)
+        if device.dependency_parent_id:
+            for parent_id, name in zip(device.dependency_parent_id.split(","), device.dependency_parent_hostname.split(",")):
+                device_parents_id[parent_id] = name
+                device_parents_name[parent_id] = parent_id
+
+        wanted_parents_id = AttrDict()
+        if parents:
+            for parent_name in parents:
+                parent_name = self._format_name(parent_name)
+                try:
+                    tmp_device = self.get_device(name=parent_name)
+                    wanted_parents_id[tmp_device.device_id] = tmp_device.hostname
+                except self.exception as err:
+                    print("      Unknown wanted parent %s on device %s" % (parent_name, device.hostname))
+
+        delete_ids = set(device_parents_id).difference(set(wanted_parents_id)) #  The returned set contains items that exist only in the first set, and not in both sets.
+        create_ids = set(wanted_parents_id).difference(set(device_parents_id)) #  The returned set contains items that exist only in the first set, and not in both sets.
+
+        if delete_ids:
+            print("Device %s, delete parents_id %s" % (device.hostname, delete_ids))
+            for device_id in delete_ids:
+                try:
+                    data = { "parent_ids": str(device_id) }
+                    r = self.call_api(method="DELETE", endpoint=f"/devices/{device.device_id}/parents", data=data)
+                    print("result", r)
+                    # todo update cache
+                except requests.exceptions.HTTPError as err:
+                    raise LibrenmsException(f"Error setting parents on device_id {device_id}: {err}")
             return r
-        except requests.exceptions.HTTPError as err:
-            raise LibrenmsException(f"Error setting parents on device_id {device_id}: {err}")
+
+        if create_ids:
+            print("Device %s, create parents_id %s" % (device.hostname, create_ids))
+            for device_id in create_ids:
+                try:
+                    data = { "parent_ids": str(device_id) }
+                    r = self.call_api(method="POST", endpoint=f"/devices/{device.device_id}/parents", data=data)
+                    print("result", r)
+                    # todo update cache
+                except requests.exceptions.HTTPError as err:
+                    raise LibrenmsException(f"Error setting parents on device_id {device.device_id}: {err}")
 
     def delete_device_parent(self, device_id=None, parent=None):
         """
